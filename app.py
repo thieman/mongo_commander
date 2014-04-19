@@ -9,6 +9,7 @@ import argparse
 import time
 
 from mongo_commander.data import ClusterData
+from mongo_commander.windows import WindowManager
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -22,11 +23,8 @@ def main():
     data = ClusterData(args.config)
     data.start_polling()
 
-    while True:
-        with data.lock:
-            logging.info(data._dict.keys())
-            logging.info(len(data.get('MongoStat', {}).get('core-db5-staging', [])))
-        time.sleep(1)
+    windows = WindowManager(data)
+    windows.start()
 
 if __name__ == '__main__':
     main()

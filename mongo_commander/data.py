@@ -66,7 +66,7 @@ class ClusterData(object):
         split = dot_key.split('.', 1)
         if split[0] not in get_dict:
             return SENTINEL
-        return get_dict[split[0]] if len(split) == 1 else dot(get_dict[split[0]], split[1])
+        return get_dict[split[0]] if len(split) == 1 else self._deep_get(split[1], get_dict[split[0]])
 
     def _deep_set(self, dot_key, value, set_dict=None):
         if set_dict is None:
@@ -106,14 +106,6 @@ class ClusterData(object):
             self.listeners.append(listener)
             listener.start_threads()
 
-    def status(self):
-        status = {}
-        for listener in self.listeners:
-            status[listener] = {}
-            for thread in listener.threads:
-                status[listener][thread] = thread.is_alive()
-        return status
-
 class NodeListenerController(object):
     def __init__(self, data, node_name, node_address):
         self.data = data
@@ -148,6 +140,8 @@ class NodeListenerThread(threading.Thread):
             stdin, stdout, stderr = self.ssh.exec_command(self.collector.command)
             while True:
                 self.collector.process(stdout.readlines(sizehint=1024))
+                self.data.set('latest.{}.{}'.format(self.node_name, self.collector.name),
+                              time.time())
                 time.sleep(1)
         finally:
             self.ssh.close()

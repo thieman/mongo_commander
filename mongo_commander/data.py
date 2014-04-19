@@ -24,7 +24,7 @@ class ClusterData(object):
         self.config_path = config_path or default_config_location
         self.load_config()
         self.nodes = self.config['nodes']
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self._dict = {}
         self.listeners = []
 
@@ -56,9 +56,9 @@ class ClusterData(object):
         with self.lock:
             self._deep_set(dot_key, value)
 
-    def push(self, dot_key, value):
+    def push(self, dot_key, value, truncate_to=None):
         with self.lock:
-            self._deep_append(dot_key, value)
+            self._deep_append(dot_key, value, truncate_to)
 
     def _deep_get(self, dot_key, get_dict=None):
         if get_dict is None:
@@ -79,7 +79,7 @@ class ClusterData(object):
             set_dict[split[0]] = {}
         self._deep_set(split[1], value, set_dict[split[0]])
 
-    def _deep_append(self, dot_key, value, set_dict=None):
+    def _deep_append(self, dot_key, value, truncate_to, set_dict=None):
         if set_dict is None:
             set_dict = self._dict
         split = dot_key.split('.', 1)
@@ -87,10 +87,12 @@ class ClusterData(object):
             if split[0] not in set_dict:
                 set_dict[split[0]] = []
             set_dict[split[0]].append(value)
+            if truncate_to:
+                set_dict[split[0]] = set_dict[split[0]][-1 * truncate_to:]
             return
         if split[0] not in set_dict:
             set_dict[split[0]] = {}
-        self._deep_append(split[1], value, set_dict[split[0]])
+        self._deep_append(split[1], value, truncate_to, set_dict[split[0]])
 
     def start_polling(self):
         auth_kwargs = {}
@@ -100,8 +102,7 @@ class ClusterData(object):
             auth_kwargs['ssh_key_path'] = os.path.expanduser(self.config['ssh']['key_path'])
 
         for node in self.nodes:
-            listener = NodeListenerController(self, node, self.config['ssh']['user'],
-                                              self.config['ssh']['auth_type'], **auth_kwargs)
+            listener = NodeListenerController(self, node.get('name'), node.get('host'))
             self.listeners.append(listener)
             listener.start_threads()
 
@@ -114,19 +115,15 @@ class ClusterData(object):
         return status
 
 class NodeListenerController(object):
-    def __init__(self, cluster_data, node_address, ssh_user, ssh_auth_type,
-                 ssh_password=None, ssh_key_path=None):
-        self.cluster_data = cluster_data
+    def __init__(self, data, node_name, node_address):
+        self.data = data
+        self.node_name = node_name
         self.node_address = node_address
-        self.ssh_user = ssh_user
-        self.ssh_auth_type = ssh_auth_type
-        self.ssh_password = ssh_password
-        self.ssh_key_path = ssh_key_path
         self.threads = []
 
     def start_threads(self):
-        for collector_doc in self.cluster_data.config['collectors']:
-            thread = NodeListenerThread(self.cluster_data, self, collector_doc)
+        for collector_doc in self.data.config['collectors']:
+            thread = NodeListenerThread(self.data, self, collector_doc)
             thread.daemon = True
             self.threads.append(thread)
             thread.start()
@@ -137,11 +134,12 @@ class NodeListenerThread(threading.Thread):
         self.data = data
         self.controller = controller
         self.collector = get_collector_class(collector_doc)(data, controller, collector_doc)
-        self.node_address = controller.node_address
-        self.ssh_user = controller.ssh_user
-        self.ssh_auth_type = controller.ssh_auth_type
-        self.ssh_password = controller.ssh_password
-        self.ssh_key_path = controller.ssh_key_path
+        self.node_name = self.controller.node_name
+        self.node_address = self.controller.node_address
+        self.ssh_user = self.data.config.get('ssh').get('user')
+        self.ssh_auth_type = self.data.config.get('ssh').get('auth_type')
+        self.ssh_password = self.data.ssh_password
+        self.ssh_key_path = os.path.expanduser(self.data.config.get('ssh').get('key_path'))
         self.ssh = paramiko.SSHClient()
 
     def run(self):

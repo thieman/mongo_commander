@@ -12,6 +12,8 @@ class Collector(object):
     def __init__(self, data, controller, collector_doc):
         self.data = data
         self.controller = controller
+        self.collector_doc = collector_doc
+        self.name = collector_doc.get('name')
         self.poll_interval = 1  # seconds between running command
 
     @property
@@ -39,14 +41,15 @@ class Collector(object):
         raise NotImplementedError()
 
 class MongoTop(Collector):
-    def __init__(self, data, controller, collector_doc):
-        super(MongoTop, self).__init__(data, controller, collector_doc)
-        self.host = collector_doc.get('host')
-        self.port = collector_doc.get('port')
+    def __init__(self, *args, **kwargs):
+        super(MongoTop, self).__init__(*args, **kwargs)
+        self.path = self.collector_doc.get('path')
+        self.host = self.collector_doc.get('host')
+        self.port = self.collector_doc.get('port')
 
     @property
     def command(self):
-        command = "/opt/mongodb/bin/mongotop"
+        command = self.path or "mongotop"
         if self.host:
             command += " --host {}".format(self.host)
         if self.port:
@@ -55,18 +58,18 @@ class MongoTop(Collector):
 
     def process(self, stdout):
         for line in stdout:
-            # self.data.push('mongotop.{}'.format(self.controller.node_address), line)
-            self.data.push('mongotop', line)
+            self.data.push('{}.{}'.format(self.name, self.controller.node_name), line, 500)
 
 class MongoStat(Collector):
-    def __init__(self, data, controller, collector_doc):
-        super(MongoStat, self).__init__(data, controller, collector_doc)
-        self.host = collector_doc.get('host')
-        self.port = collector_doc.get('port')
+    def __init__(self, *args, **kwargs):
+        super(MongoStat, self).__init__(*args, **kwargs)
+        self.path = self.collector_doc.get('path')
+        self.host = self.collector_doc.get('host')
+        self.port = self.collector_doc.get('port')
 
     @property
     def command(self):
-        command = "/opt/mongodb/bin/mongostat"
+        command = self.path or "mongostat"
         if self.host:
             command += " --host {}".format(self.host)
         if self.port:
@@ -75,5 +78,4 @@ class MongoStat(Collector):
 
     def process(self, stdout):
         for line in stdout:
-            # self.data.push('mongostat.{}'.format(self.controller.node_address), line)
-            self.data.push('mongostat', line)
+            self.data.push('{}.{}'.format(self.name, self.controller.node_name), line, 500)

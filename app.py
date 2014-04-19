@@ -6,11 +6,12 @@ and parsing command line configs. """
 import sys
 import logging
 import argparse
+import time
 
 from mongo_commander.data import ClusterData
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 
 def main():
@@ -21,10 +22,10 @@ def main():
     data = ClusterData(args.config)
     data.start_polling()
 
-    import time
     while True:
         with data.lock:
             logging.info(data._dict.keys())
+            logging.info(len(data.get('MongoStat', {}).get('core-db5-staging', [])))
         time.sleep(1)
 
 if __name__ == '__main__':

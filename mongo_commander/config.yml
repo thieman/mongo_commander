@@ -6,9 +6,9 @@ ssh:
   key_path: ~/.ssh/id_rsa_gc
 
 nodes:
-  - core-db5-staging.gamechanger.io
-  - core-db6-staging.gamechanger.io
+  - {name: core-db5-staging, host: core-db5-staging.gamechanger.io}
+  - {name: core-db6-staging, host: core-db6-staging.gamechanger.io}
 
 collectors:
-  - {type: MongoTop, port: 27018}
-  - {type: MongoStat, port: 27018}
+  - {name: MongoTop, type: MongoTop, port: 27018, path: /opt/mongodb/bin/mongotop}
+  - {name: MongoStat, type: MongoStat, port: 27018, path: /opt/mongodb/bin/mongostat}

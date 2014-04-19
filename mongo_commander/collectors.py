@@ -8,7 +8,7 @@ def get_collector_class(collector_doc):
                   'MongoStat': MongoStat}
     return collectors[collector_doc['type']]
 
-class BaseCollector(object):
+class Collector(object):
     def __init__(self, data, controller, collector_doc):
         self.data = data
         self.controller = controller
@@ -22,7 +22,7 @@ class BaseCollector(object):
         setup_process_return."""
         pass
 
-    def setup_process_return(self, stdout, stderr):
+    def setup_process_return(self, stdout):
         """Receives the stdout and stderr of the command run in setup_command,
         if it is implemented."""
         raise NotImplementedError()
@@ -34,11 +34,11 @@ class BaseCollector(object):
         streamed to process."""
         raise NotImplementedError()
 
-    def process(self, stdout, stderr):
-        """Receives lines from stdout and stderr of the process run by command."""
-        pass
+    def process(self, stdout):
+        """Receives lines from stdout of the process run by command."""
+        raise NotImplementedError()
 
-class MongoTop(BaseCollector):
+class MongoTop(Collector):
     def __init__(self, data, controller, collector_doc):
         super(MongoTop, self).__init__(data, controller, collector_doc)
         self.host = collector_doc.get('host')
@@ -53,11 +53,12 @@ class MongoTop(BaseCollector):
             command += " --port {}".format(self.port)
         return command
 
-    def process(self, stdout, stderr):
+    def process(self, stdout):
         for line in stdout:
-            self.data.append('mongotop.{}'.format(self.controller.node_address), line)
+            # self.data.push('mongotop.{}'.format(self.controller.node_address), line)
+            self.data.push('mongotop', line)
 
-class MongoStat(BaseCollector):
+class MongoStat(Collector):
     def __init__(self, data, controller, collector_doc):
         super(MongoStat, self).__init__(data, controller, collector_doc)
         self.host = collector_doc.get('host')
@@ -72,6 +73,7 @@ class MongoStat(BaseCollector):
             command += " --port {}".format(self.port)
         return command
 
-    def process(self, stdout, stderr):
+    def process(self, stdout):
         for line in stdout:
-            self.data.append('mongostat.{}'.format(self.controller.node_address), line)
+            # self.data.push('mongostat.{}'.format(self.controller.node_address), line)
+            self.data.push('mongostat', line)

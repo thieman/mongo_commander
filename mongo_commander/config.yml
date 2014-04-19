@@ -1,0 +1,14 @@
+ssh:
+  user: travis
+  # either "password" or "key"
+  auth_type: key
+  # file path to your SSH key. only necessary if auth_type is "key"
+  key_path: ~/.ssh/id_rsa_gc
+
+nodes:
+  - core-db5-staging.gamechanger.io
+  - core-db6-staging.gamechanger.io
+
+collectors:
+  - {type: MongoTop, port: 27018}
+  - {type: MongoStat, port: 27018}

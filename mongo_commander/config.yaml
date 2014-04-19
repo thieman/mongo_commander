@@ -1,0 +1,10 @@
+ssh:
+  user: travis
+  # one of either "password" or "key"
+  auth_type: key
+  # only required for "key" auth_type
+  key: ~/.ssh/id_rsa_gc
+
+nodes:
+  - core-db5-staging.gamechanger.io
+  - core-db6-staging.gamechanger.io

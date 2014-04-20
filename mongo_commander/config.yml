@@ -16,9 +16,11 @@ nodes:
   - {name: shard1-db4-staging, host: shard1-db4-staging.gamechanger.io, mongo_port: 27018}
   - {name: shard1-db6-staging, host: shard1-db6-staging.gamechanger.io, mongo_port: 27018}
 
-# Each collector type has its own set of options, but they all support:
+# Each collector type has its own set of options but they all support:
 # name: the name by which the collector will be referred to in MC. these must be unique.
 # type: the name of the class representing the collector.
 collectors:
   - {name: MongoTop, type: MongoTop, port: 27018, path: /opt/mongodb/bin/mongotop}
   - {name: MongoStat, type: MongoStat, port: 27018, path: /opt/mongodb/bin/mongostat}
+  - {name: TailSlowLog, type: Tail, file: /logs/mongo/db.log}
+  - {name: SlowQueries, type: TailGrep, file: /logs/mongo/db.log, grep: "r:[0-9]{5,7}"}

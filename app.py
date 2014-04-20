@@ -7,6 +7,8 @@ import sys
 import logging
 import argparse
 import time
+import curses
+import atexit
 
 from mongo_commander.data import ClusterData
 from mongo_commander.windows import WindowManager
@@ -17,6 +19,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', default=None, help="Location of YAML config file")
     args = parser.parse_args()
+
+    # atexit.register(curses.endwin)
 
     data = ClusterData(args.config)
     data.start_polling()

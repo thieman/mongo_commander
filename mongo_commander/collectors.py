@@ -2,10 +2,13 @@
 Mongo nodes and how to process the data that is returned."""
 
 import time
+import logging
 
 def get_collector_class(collector_doc):
     collectors = {'MongoTop': MongoTop,
-                  'MongoStat': MongoStat}
+                  'MongoStat': MongoStat,
+                  'Tail': Tail,
+                  'TailGrep': TailGrep}
     return collectors[collector_doc['type']]
 
 class Collector(object):
@@ -14,6 +17,7 @@ class Collector(object):
         self.controller = controller
         self.collector_doc = collector_doc
         self.name = collector_doc.get('name')
+        self.infrequent = False # if True, thread does not go unhealthy on long wait for output
         self.poll_interval = 1  # seconds between running command
 
     @property
@@ -75,6 +79,56 @@ class MongoStat(Collector):
         if self.port:
             command += " --port {}".format(self.port)
         return command
+
+    def process(self, stdout):
+        for line in stdout:
+            self.data.push('{}.{}'.format(self.name, self.controller.node_name), line, 500)
+
+class MongoStat(Collector):
+    def __init__(self, *args, **kwargs):
+        super(MongoStat, self).__init__(*args, **kwargs)
+        self.path = self.collector_doc.get('path')
+        self.host = self.collector_doc.get('host')
+        self.port = self.collector_doc.get('port')
+
+    @property
+    def command(self):
+        command = self.path or "mongostat"
+        if self.host:
+            command += " --host {}".format(self.host)
+        if self.port:
+            command += " --port {}".format(self.port)
+        return command
+
+    def process(self, stdout):
+        for line in stdout:
+            self.data.push('{}.{}'.format(self.name, self.controller.node_name), line, 500)
+
+class Tail(Collector):
+    def __init__(self, *args, **kwargs):
+        super(Tail, self).__init__(*args, **kwargs)
+        self.file = self.collector_doc.get('file')
+        self.infrequent = True
+
+    @property
+    def command(self):
+        return "tail -0f {}".format(self.file)
+
+    def process(self, stdout):
+        for line in stdout:
+            self.data.push('{}.{}'.format(self.name, self.controller.node_name), line, 500)
+            logging.info(line)
+
+class TailGrep(Collector):
+    def __init__(self, *args, **kwargs):
+        super(TailGrep, self).__init__(*args, **kwargs)
+        self.file = self.collector_doc.get('file')
+        self.grep = self.collector_doc.get('grep')
+        self.infrequent = True
+
+    @property
+    def command(self):
+        return "tail -0f {} | grep -E {}".format(self.file, self.grep)
 
     def process(self, stdout):
         for line in stdout:

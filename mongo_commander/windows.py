@@ -6,7 +6,10 @@ import time
 import curses
 import threading
 
-from .views import TitleView, MiniView, StatusView
+from .views import TitleView, MiniView, MenuView, StatusView, TailView
+
+MENU_WIDTH = 40
+STATUS_WIDTH = 40
 
 def setup_window(window):
     window.keypad(1)
@@ -19,12 +22,16 @@ class WindowManager(object):
         self.render_thread = None
         self.windows = {}
         self.views = {}
+        self.render_thread = None
 
     def start(self):
         self.screen = curses.initscr()
         curses.start_color()
         curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
         curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
+        curses.init_pair(3, curses.COLOR_WHITE, curses.COLOR_BLACK)
+        curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        curses.curs_set(0)
         curses.noecho()
         curses.cbreak()
         setup_window(self.screen)
@@ -33,6 +40,7 @@ class WindowManager(object):
         self._main_loop()
 
     def close(self):
+        curses.curs_set(1)
         self.screen.immedok(False)
         self.screen.keypad(0)
         curses.nocbreak()
@@ -44,8 +52,9 @@ class WindowManager(object):
 
         self.windows['title'] = curses.newwin(1, x, 0, 0)
         self.windows['mini'] = curses.newwin(1, x, y-1, 0)
-        self.windows['status'] = curses.newwin(y - 4, 40, 1, x - 40)
-        self.windows['main'] = curses.newwin(y - 4, x - 40, 1, 0)
+        self.windows['menu'] = curses.newwin(y - 2, MENU_WIDTH, 1, 0)
+        self.windows['status'] = curses.newwin(y - 2, STATUS_WIDTH, 1, x - STATUS_WIDTH)
+        self.windows['main'] = curses.newwin(y - 2, x - (MENU_WIDTH + STATUS_WIDTH), 1, MENU_WIDTH)
 
         for window in self.windows.values():
             setup_window(window)
@@ -53,6 +62,9 @@ class WindowManager(object):
         self.views['title'] = TitleView(self.data, self.windows['title'])
         self.views['mini'] = MiniView(self.data, self.windows['mini'])
         self.views['status'] = StatusView(self.data, self.windows['status'])
+        self.views['main'] = TailView(self.data, self.windows['main'])
+
+        self.views['menu'] = MenuView(self, self.data, self.windows['menu'])
 
     def _redraw_windows(self):
         y, x = self.screen.getmaxyx()
@@ -64,7 +76,7 @@ class WindowManager(object):
         while True:
             for view in self.views.values():
                 try:
-                    view.periodic_render()
+                    view.render()
                 except:
                     pass
             time.sleep(1)
@@ -76,12 +88,12 @@ class WindowManager(object):
 
     def _main_loop(self):
         while True:
-            char_code = self.screen.getch()
-            if char_code >= 0 and char_code <= 255:
-                char = chr(char_code).lower()
-                if char == 'q':
-                    self.close()
-                    break
-                else:
-                    for view in self.views.values():
-                        view.process_char(char)
+            char = self.screen.getch()
+            if char >= 0 and char <= 255:
+                char = chr(char).lower()
+            if char == 'q':
+                self.close()
+                break
+            else:
+                for view in self.views.values():
+                    view.process_char(char)

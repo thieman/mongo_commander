@@ -22,6 +22,9 @@ class WindowManager(object):
 
     def start(self):
         self.screen = curses.initscr()
+        curses.start_color()
+        curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+        curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
         curses.noecho()
         curses.cbreak()
         setup_window(self.screen)
@@ -59,13 +62,12 @@ class WindowManager(object):
 
     def _periodic_render(self):
         while True:
-            try:
-                for view in self.views.values():
+            for view in self.views.values():
+                try:
                     view.periodic_render()
-            except:
-                pass
-            finally:
-                time.sleep(1)
+                except:
+                    pass
+            time.sleep(1)
 
     def _start_render_thread(self):
         self.render_thread = threading.Thread(target=self._periodic_render)

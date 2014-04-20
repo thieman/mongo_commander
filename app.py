@@ -11,6 +11,8 @@ import time
 from mongo_commander.data import ClusterData
 from mongo_commander.windows import WindowManager
 
+logging.basicConfig(filename='app.log', level=logging.INFO)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', default=None, help="Location of YAML config file")

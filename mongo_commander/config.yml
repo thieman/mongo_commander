@@ -5,10 +5,20 @@ ssh:
   # file path to your SSH key. only necessary if auth_type is "key"
   key_path: ~/.ssh/id_rsa_gc
 
+# Each node supports the following options:
+# name: the name by which the node will be referred to in MC. these must be unique.
+# host: the address that MC uses to connect to the node over SSH.
+# mongo_port: the port of the mongod node on the host. used for primary checking.
 nodes:
-  - {name: core-db5-staging, host: core-db5-staging.gamechanger.io}
-  - {name: core-db6-staging, host: core-db6-staging.gamechanger.io}
+  - {name: core-db5-staging, host: core-db5-staging.gamechanger.io, mongo_port: 27018}
+  - {name: core-db6-staging, host: core-db6-staging.gamechanger.io, mongo_port: 27018}
+  - {name: log-db2-staging, host: log-db2-staging.gamechanger.io, mongo_port: 27018}
+  - {name: shard1-db4-staging, host: shard1-db4-staging.gamechanger.io, mongo_port: 27018}
+  - {name: shard1-db6-staging, host: shard1-db6-staging.gamechanger.io, mongo_port: 27018}
 
+# Each collector type has its own set of options, but they all support:
+# name: the name by which the collector will be referred to in MC. these must be unique.
+# type: the name of the class representing the collector.
 collectors:
   - {name: MongoTop, type: MongoTop, port: 27018, path: /opt/mongodb/bin/mongotop}
   - {name: MongoStat, type: MongoStat, port: 27018, path: /opt/mongodb/bin/mongostat}

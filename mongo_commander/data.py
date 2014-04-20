@@ -102,16 +102,26 @@ class ClusterData(object):
             auth_kwargs['ssh_key_path'] = os.path.expanduser(self.config['ssh']['key_path'])
 
         for node in self.nodes:
-            listener = NodeListenerController(self, node.get('name'), node.get('host'))
+            listener = NodeListenerController(self, node.get('name'), node.get('host'),
+                                              node.get('mongo_port', 27017))
             self.listeners.append(listener)
+            listener.start_identify_thread()
             listener.start_threads()
 
 class NodeListenerController(object):
-    def __init__(self, data, node_name, node_address):
+    def __init__(self, data, node_name, node_address, mongo_port=27017):
         self.data = data
         self.node_name = node_name
         self.node_address = node_address
+        self.node_mongo_port = mongo_port
         self.threads = []
+
+    def start_identify_thread(self):
+        """Start a thread to connect to the remote node and collect information
+        on the running mongod process."""
+        thread = NodeIdentifierThread(self.data, self)
+        thread.daemon = True
+        thread.start()
 
     def start_threads(self):
         for collector_doc in self.data.config['collectors']:
@@ -128,6 +138,7 @@ class NodeListenerThread(threading.Thread):
         self.collector = get_collector_class(collector_doc)(data, controller, collector_doc)
         self.node_name = self.controller.node_name
         self.node_address = self.controller.node_address
+        self.node_mongo_port = self.controller.node_mongo_port
         self.ssh_user = self.data.config.get('ssh').get('user')
         self.ssh_auth_type = self.data.config.get('ssh').get('auth_type')
         self.ssh_password = self.data.ssh_password
@@ -155,3 +166,26 @@ class NodeListenerThread(threading.Thread):
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.ssh.connect(self.node_address, username=self.ssh_user,
                          **auth_kwargs)
+
+class NodeIdentifierThread(NodeListenerThread):
+    def __init__(self, data, controller):
+        super(NodeListenerThread, self).__init__()
+        self.data = data
+        self.controller = controller
+        self.node_name = self.controller.node_name
+        self.node_address = self.controller.node_address
+        self.node_mongo_port = self.controller.node_mongo_port
+        self.ssh_user = self.data.config.get('ssh').get('user')
+        self.ssh_auth_type = self.data.config.get('ssh').get('auth_type')
+        self.ssh_password = self.data.ssh_password
+        self.ssh_key_path = os.path.expanduser(self.data.config.get('ssh').get('key_path'))
+        self.ssh = paramiko.SSHClient()
+
+    def run(self):
+        self.connect()
+        try:
+            stdin, stdout, stderr = self.ssh.exec_command('mongo localhost:{} --eval "db.isMaster().ismaster"'.format(self.node_mongo_port))
+            is_master = stdout.readlines()[-1].strip() == 'true'
+            self.data.set('{}.primary'.format(self.node_name), is_master)
+        finally:
+            self.ssh.close()

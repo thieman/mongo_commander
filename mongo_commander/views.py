@@ -9,7 +9,7 @@ import logging
 from operator import itemgetter
 from collections import OrderedDict
 
-from .menus import MainMenu
+from .menus import MainMenu, MongoTopMenu, MongoStatMenu, TailMenu, TailGrepMenu
 from .curses_util import movedown
 
 class View(object):
@@ -22,6 +22,11 @@ class View(object):
 
     def render(self):
         raise NotImplementedError()
+
+class CollectorView(View):
+    def __init__(self, data, window, collector_name):
+        super(CollectorView, self).__init__(data, window)
+        self.collector_name = collector_name
 
 class TitleView(View):
     def __init__(self, *args, **kwargs):
@@ -58,7 +63,7 @@ class MiniView(View):
         if prompt:
             self.window.addstr(0, 1, prompt)
         else:
-            self.window.addstr(0, 1, 'Arrow keys to navigate menus, ENTER to select, q to exit')
+            self.window.addstr(0, 1, 'Arrow keys to navigate menus, m for collector menu, ENTER to select, q to exit')
 
 class MenuView(View):
     def __init__(self, window_manager, *args, **kwargs):
@@ -70,9 +75,11 @@ class MenuView(View):
         self.window.clear()
         self.window.border(0)
         self.window.move(1, 1)
+        self.window.addstr(self.menu.heading.upper(), curses.A_BOLD)
+        self.window.move(3, 1)
         position = 0
         for option_group in self.menu.options:
-            self.window.addstr(option_group.name.upper(), curses.A_BOLD)
+            self.window.addstr(option_group.name.upper().replace('_', ' '), curses.A_BOLD)
             movedown(self.window, 2, 3)
             for option in option_group.options:
                 if self.menu.position == position:
@@ -131,9 +138,42 @@ class StatusView(View):
             nodes['primary' if is_primary else 'secondary'].append(node_doc)
         return nodes
 
-class TailView(View):
+class MongoTopView(CollectorView):
     def __init__(self, *args, **kwargs):
-        super(TailView, self).__init__(*args, **kwargs)
+        super(MongoTopView, self).__init__(*args, **kwargs)
+        self.menu = MongoTopMenu(self.collector_name)
 
     def render(self):
-        pass
+        self.window.clear()
+        self.window.move(3, 3)
+        self.window.addstr('MongoTop')
+
+class MongoStatView(CollectorView):
+    def __init__(self, *args, **kwargs):
+        super(MongoStatView, self).__init__(*args, **kwargs)
+        self.menu = MongoStatMenu(self.collector_name)
+
+    def render(self):
+        self.window.clear()
+        self.window.move(3, 3)
+        self.window.addstr('MongoStat')
+
+class TailView(CollectorView):
+    def __init__(self, *args, **kwargs):
+        super(TailView, self).__init__(*args, **kwargs)
+        self.menu = TailMenu(self.collector_name)
+
+    def render(self):
+        self.window.clear()
+        self.window.move(3, 3)
+        self.window.addstr('Tail')
+
+class TailGrepView(CollectorView):
+    def __init__(self, *args, **kwargs):
+        super(TailGrepView, self).__init__(*args, **kwargs)
+        self.menu = TailGrepMenu(self.collector_name)
+
+    def render(self):
+        self.window.clear()
+        self.window.move(3, 3)
+        self.window.addstr('TailGrep')

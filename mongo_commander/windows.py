@@ -6,7 +6,7 @@ import time
 import curses
 import threading
 
-from .views import TitleView, MiniView, MenuView, StatusView, TailView
+from . import views
 
 MENU_WIDTH = 40
 STATUS_WIDTH = 40
@@ -47,6 +47,24 @@ class WindowManager(object):
         curses.echo()
         curses.endwin()
 
+    def change_main_view(self, menu_options):
+        collector_name = self.views['menu'].menu.get_active_in_group('collectors')[0]
+        collector_doc = [collector
+                         for collector in self.data.config.get('collectors')
+                         if collector['name'] == collector_name][0]
+        view_class = getattr(views, "{}View".format(collector_doc['type']))
+        view = view_class(self.data, self.windows['main'], collector_name)
+        self.views['main'] = view
+        self.views['menu'].menu = view.menu
+        self.views['main'].render()
+        self.views['menu'].render()
+
+    def change_to_main_menu(self):
+        menu_view = views.MenuView(self, self.data, self.windows['menu'])
+        menu_view.menu.on_change(self.change_main_view)
+        self.views['menu'] = menu_view
+        menu_view.render()
+
     def _create_windows(self):
         y, x = self.screen.getmaxyx()
 
@@ -59,12 +77,12 @@ class WindowManager(object):
         for window in self.windows.values():
             setup_window(window)
 
-        self.views['title'] = TitleView(self.data, self.windows['title'])
-        self.views['mini'] = MiniView(self.data, self.windows['mini'])
-        self.views['status'] = StatusView(self.data, self.windows['status'])
-        self.views['main'] = TailView(self.data, self.windows['main'])
+        self.views['title'] = views.TitleView(self.data, self.windows['title'])
+        self.views['mini'] = views.MiniView(self.data, self.windows['mini'])
+        self.views['status'] = views.StatusView(self.data, self.windows['status'])
+        self.views['main'] = views.TailView(self.data, self.windows['main'], "TailSlowLog")
 
-        self.views['menu'] = MenuView(self, self.data, self.windows['menu'])
+        self.change_to_main_menu()
 
     def _redraw_windows(self):
         y, x = self.screen.getmaxyx()
@@ -96,5 +114,8 @@ class WindowManager(object):
             if char == 'q':
                 self.close()
                 break
+            if char == 'm':
+                self.change_to_main_menu()
+                continue
             for view in self.views.values():
                 view.process_char(char)

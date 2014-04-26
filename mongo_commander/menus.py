@@ -3,6 +3,7 @@ based on the Menu's current settings. When a new collector is activated,
 it binds its various sub-views to Menu select events."""
 
 import curses
+from . import constants as c
 
 class OptionGroup(object):
     def __init__(self, group_name, group_options, multi_select=False):
@@ -18,11 +19,16 @@ class OptionGroup(object):
         for option in self.options:
             option['active'] = False
 
+    def get_active_names(self):
+        return [option['name']
+                for option in self.options
+                if option['active']]
+
 class Menu(object):
     def __init__(self):
         self.position = 0
         self.options = []
-        self.registry = {}
+        self.change_callbacks = []
 
     def process_char(self, char):
         if char == curses.KEY_DOWN:
@@ -31,6 +37,19 @@ class Menu(object):
             self.position = max(0, self.position - 1)
         elif char == curses.KEY_ENTER:
             self.toggle_option_at_position()
+            self.fire_callbacks()
+
+    def on_change(self, callback):
+        if callback not in self.change_callbacks:
+            self.change_callbacks.append(callback)
+
+    def remove_callback(self, callback):
+        self.change_callbacks = filter(lambda c: c != callback,
+                                       self.change_callbacks)
+
+    def fire_callbacks(self):
+        for callback in self.change_callbacks:
+            callback(self.options)
 
     @property
     def total_options(self):
@@ -65,11 +84,18 @@ class Menu(object):
             option_group.deactivate_all()
         option['active'] = not option['active']
 
+    def get_active_in_group(self, group_name):
+        for group in self.options:
+            if group.name == group_name:
+                return group.get_active_names()
+        raise ValueError('unknown group {}'.format(group_name))
+
 class MainMenu(Menu):
     def __init__(self, data, window_manager):
         super(MainMenu, self).__init__()
         self.data = data
         self.window_manager = window_manager
+        self.heading = "Choose a Collector"
         self.options = [OptionGroup('collectors',
                                     [collector['name'] for collector in self.data.config['collectors']])]
         self.set_active_collector()
@@ -78,3 +104,28 @@ class MainMenu(Menu):
         for index, collector_doc in enumerate(self.data.config['collectors']):
             if "{}View".format(collector_doc['type']) == self.window_manager.views['main'].__class__.__name__:
                 self.toggle_option('collectors', collector_doc['name'], activate=True)
+
+class MongoTopMenu(Menu):
+    def __init__(self, collector_name):
+        super(MongoTopMenu, self).__init__()
+        self.heading = collector_name
+        self.options = [OptionGroup('view_mode', [c.TEXT, c.BAR_CHART, c.LINE_CHART])]
+        self.toggle_option('view_mode', c.TEXT)
+
+class MongoStatMenu(Menu):
+    def __init__(self, collector_name):
+        super(MongoStatMenu, self).__init__()
+        self.heading = collector_name
+        self.options = []
+
+class TailMenu(Menu):
+    def __init__(self, collector_name):
+        super(TailMenu, self).__init__()
+        self.heading = collector_name
+        self.options = []
+
+class TailGrepMenu(Menu):
+    def __init__(self, collector_name):
+        super(TailGrepMenu, self).__init__()
+        self.heading = collector_name
+        self.options = []

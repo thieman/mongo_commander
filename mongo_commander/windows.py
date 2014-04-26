@@ -89,11 +89,12 @@ class WindowManager(object):
     def _main_loop(self):
         while True:
             char = self.screen.getch()
+            if char == 10:
+                char = curses.KEY_ENTER
             if char >= 0 and char <= 255:
                 char = chr(char).lower()
             if char == 'q':
                 self.close()
                 break
-            else:
-                for view in self.views.values():
-                    view.process_char(char)
+            for view in self.views.values():
+                view.process_char(char)

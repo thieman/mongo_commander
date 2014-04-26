@@ -9,6 +9,7 @@ import logging
 from operator import itemgetter
 from collections import OrderedDict
 
+from .menus import MainMenu
 from .curses_util import movedown
 
 class View(object):
@@ -28,12 +29,15 @@ class TitleView(View):
         self.saying = None
         self.sayings = ["Never give up. Never surrender!",
                         "HindenburgDB: It's humongous, but it's also on fire.",
-                        "Highway to the Danger Zone",
+                        "I am become Mongo, destroyer of data.",
+                        "#dropdatabase WUB-WUB-WUB-WUB-WUB-WUB-WUB-WUB",
+                        "This, too, shall pass.",
                         "Please direct all hate tweets to @eliothorowitz.",
                         "Oh, nobody told you about $SHITTY_DEFAULT_BEHAVIOR?",
                         "Call a DBA for elections lasting over four hours.",
-                        "Because you really wanted your database to involve JavaScript.",
-                        "If Mongo breaks, just try again, you probably hit a call to /dev/random."]
+                        "Because you chose a database that uses JavaScript.",
+                        "If Mongo breaks, just try again, you probably hit a call to /dev/random.",
+                        "Knock knock. Who's there? [object Object]."]
 
     def get_motivational(self):
         if int(time.time()) % 60 == 0 or not self.saying:
@@ -59,62 +63,29 @@ class MiniView(View):
 class MenuView(View):
     def __init__(self, window_manager, *args, **kwargs):
         super(MenuView, self).__init__(*args, **kwargs)
-
         self.window_manager = window_manager
-        self.menu_view = None # the view currently controlling the menu, or None
-        self.active_positions = set()
-
-        start_options = OrderedDict()
-        start_options['collectors'] = [collector['name'] for collector in self.data.config['collectors']]
-        self.set_current_menu(start_options)
-        self.set_active_collector()
+        self.menu = MainMenu(self.data, self.window_manager)
 
     def render(self):
         self.window.clear()
         self.window.border(0)
         self.window.move(1, 1)
         position = 0
-        for category, values in self.options.iteritems():
-            self.window.addstr(category.upper(), curses.A_BOLD)
+        for option_group in self.menu.options:
+            self.window.addstr(option_group.name.upper(), curses.A_BOLD)
             movedown(self.window, 2, 3)
-            for value in values:
-                if self.position == position:
+            for option in option_group.options:
+                if self.menu.position == position:
                     y, x = self.window.getyx()
                     self.window.addstr(y, 1, "> ", curses.A_BOLD)
-                self.window.addstr(value, curses.color_pair(4 if position in self.active_positions else 3))
+                self.window.addstr(option['name'], curses.color_pair(4 if option['active'] else 3))
                 movedown(self.window, 1, 3)
                 position += 1
             movedown(self.window, 1, 1)
 
     def process_char(self, char):
-        if char == curses.KEY_DOWN:
-            self.position = min(self.total_options - 1, self.position + 1)
-        elif char == curses.KEY_UP:
-            self.position = max(0, self.position - 1)
-        elif char == curses.KEY_ENTER:
-            self.select_current_option()
+        self.menu.process_char(char)
         self.render()
-
-    def set_current_menu(self, options):
-        """options must be an OrderedDict of lists."""
-        self.position = 0
-        self.options = options
-
-    @property
-    def total_options(self):
-        total = 0
-        for values in self.options.values():
-            total += len(values)
-        return total
-
-    def select_current_option(self):
-        pass
-
-    def set_active_collector(self):
-        self.active_positions = set()
-        for index, collector_doc in enumerate(self.data.config['collectors']):
-            if "{}View".format(collector_doc['type']) == self.window_manager.views['main'].__class__.__name__:
-                self.active_positions.add(index)
 
 class StatusView(View):
     def __init__(self, *args, **kwargs):

@@ -10,6 +10,7 @@ from operator import itemgetter
 from collections import OrderedDict
 
 from .menus import MainMenu, MongoTopMenu, MongoStatMenu, TailMenu, TailGrepMenu
+from .widgets import StreamWidget
 from .curses_util import movedown
 
 class View(object):
@@ -27,6 +28,20 @@ class CollectorView(View):
     def __init__(self, data, window, collector_name):
         super(CollectorView, self).__init__(data, window)
         self.collector_name = collector_name
+        y, x = self.window.getmaxyx()
+        self.subwindow = self.window.derwin(y - 4, x - 2, 3, 1)
+
+    def update_subwindow(self):
+        raise NotImplementedError()
+
+    def render(self):
+        self.window.clear()
+        self.window.border(0)
+        self.window.move(1, 1)
+        self.window.addstr(self.collector_name, curses.A_BOLD)
+        self.subwindow.clear()
+        self.update_subwindow()
+        self.subwindow.refresh()
 
 class TitleView(View):
     def __init__(self, *args, **kwargs):
@@ -35,7 +50,7 @@ class TitleView(View):
         self.sayings = ["Never give up. Never surrender!",
                         "HindenburgDB: It's humongous, but it's also on fire.",
                         "I am become Mongo, destroyer of data.",
-                        "#dropdatabase WUB-WUB-WUB-WUB-WUB-WUB-WUB-WUB",
+                        "#dropDatabase WUB-WUB-WUB-WUB-WUB-WUB-WUB-WUB",
                         "This, too, shall pass.",
                         "Please direct all hate tweets to @eliothorowitz.",
                         "Oh, nobody told you about $SHITTY_DEFAULT_BEHAVIOR?",
@@ -131,7 +146,7 @@ class StatusView(View):
                 latest = self.data.get('latest.{}.{}'.format(thread.node_name,
                                                              thread.collector.name), 0)
                 if thread.is_alive() and (time.time() - int(latest) < 60
-                                          or thread.collector.infrequent):
+                                          or thread.collector._infrequent):
                     healthy_threads += 1
             node_doc = {'name': listener.node_name,
                         'total': total_threads, 'healthy': healthy_threads}
@@ -143,37 +158,35 @@ class MongoTopView(CollectorView):
         super(MongoTopView, self).__init__(*args, **kwargs)
         self.menu = MongoTopMenu(self.collector_name)
 
-    def render(self):
-        self.window.clear()
-        self.window.move(3, 3)
-        self.window.addstr('MongoTop')
+    def update_subwindow(self):
+        pass
 
 class MongoStatView(CollectorView):
     def __init__(self, *args, **kwargs):
         super(MongoStatView, self).__init__(*args, **kwargs)
         self.menu = MongoStatMenu(self.collector_name)
 
-    def render(self):
-        self.window.clear()
-        self.window.move(3, 3)
-        self.window.addstr('MongoStat')
+    def update_subwindow(self):
+        pass
 
 class TailView(CollectorView):
     def __init__(self, *args, **kwargs):
         super(TailView, self).__init__(*args, **kwargs)
         self.menu = TailMenu(self.collector_name)
+        self.widget = StreamWidget(self.data)
 
-    def render(self):
-        self.window.clear()
-        self.window.move(3, 3)
-        self.window.addstr('Tail')
+    def update_subwindow(self):
+        # get keys we are currently interested in from menu settings
+        from operator import itemgetter
+        current_keys = ["TailSlowLog.{}".format(node)
+                        for node in map(itemgetter('name'), self.data.config['nodes'])]
+        self.widget.source_keys = current_keys
+        self.widget.apply_to_window(self.subwindow)
 
 class TailGrepView(CollectorView):
     def __init__(self, *args, **kwargs):
         super(TailGrepView, self).__init__(*args, **kwargs)
         self.menu = TailGrepMenu(self.collector_name)
 
-    def render(self):
-        self.window.clear()
-        self.window.move(3, 3)
-        self.window.addstr('TailGrep')
+    def update_subwindow(self):
+        pass

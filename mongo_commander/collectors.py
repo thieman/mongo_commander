@@ -2,6 +2,7 @@
 Mongo nodes and how to process the data that is returned."""
 
 import time
+from datetime import datetime
 import logging
 
 def get_collector_class(collector_doc):
@@ -12,13 +13,22 @@ def get_collector_class(collector_doc):
     return collectors[collector_doc['type']]
 
 class Collector(object):
+    # if True, thread does not go unhealthy on long wait for output
+    _infrequent = False
+
     def __init__(self, data, controller, collector_doc):
         self.data = data
         self.controller = controller
         self.collector_doc = collector_doc
         self.name = collector_doc.get('name')
-        self.infrequent = False # if True, thread does not go unhealthy on long wait for output
         self.poll_interval = 1  # seconds between running command
+
+    def _datum(self, data):
+        return {'data': data,
+                'time': datetime.utcnow(),
+                'node_name': self.controller.node_name,
+                'collector_name': self.collector_doc['name'],
+                'collector_type': self.collector_doc['type']}
 
     @property
     def setup_command(self):
@@ -62,7 +72,8 @@ class MongoTop(Collector):
 
     def process(self, stdout):
         for line in stdout:
-            self.data.push('{}.{}'.format(self.name, self.controller.node_name), line, 500)
+            self.data.push('{}.{}'.format(self.name, self.controller.node_name),
+                           self._datum(line), 500)
 
 class MongoStat(Collector):
     def __init__(self, *args, **kwargs):
@@ -82,7 +93,8 @@ class MongoStat(Collector):
 
     def process(self, stdout):
         for line in stdout:
-            self.data.push('{}.{}'.format(self.name, self.controller.node_name), line, 500)
+            self.data.push('{}.{}'.format(self.name, self.controller.node_name),
+                           self._datum(line), 500)
 
 class MongoStat(Collector):
     def __init__(self, *args, **kwargs):
@@ -102,13 +114,15 @@ class MongoStat(Collector):
 
     def process(self, stdout):
         for line in stdout:
-            self.data.push('{}.{}'.format(self.name, self.controller.node_name), line, 500)
+            self.data.push('{}.{}'.format(self.name, self.controller.node_name),
+                           self._datum(line), 500)
 
 class Tail(Collector):
+    _infrequent = True
+
     def __init__(self, *args, **kwargs):
         super(Tail, self).__init__(*args, **kwargs)
         self.file = self.collector_doc.get('file')
-        self.infrequent = True
 
     @property
     def command(self):
@@ -116,15 +130,16 @@ class Tail(Collector):
 
     def process(self, stdout):
         for line in stdout:
-            self.data.push('{}.{}'.format(self.name, self.controller.node_name), line, 500)
-            logging.info(line)
+            self.data.push('{}.{}'.format(self.name, self.controller.node_name),
+                           self._datum(line), 500)
 
 class TailGrep(Collector):
+    _infrequent = True
+
     def __init__(self, *args, **kwargs):
         super(TailGrep, self).__init__(*args, **kwargs)
         self.file = self.collector_doc.get('file')
         self.grep = self.collector_doc.get('grep')
-        self.infrequent = True
 
     @property
     def command(self):
@@ -132,4 +147,5 @@ class TailGrep(Collector):
 
     def process(self, stdout):
         for line in stdout:
-            self.data.push('{}.{}'.format(self.name, self.controller.node_name), line, 500)
+            self.data.push('{}.{}'.format(self.name, self.controller.node_name),
+                           self._datum(line), 500)

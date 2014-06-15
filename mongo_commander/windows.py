@@ -47,16 +47,22 @@ class WindowManager(object):
         curses.echo()
         curses.endwin()
 
+    def view_class_for_collector(self, collector_doc):
+        return getattr(views, "{}View".format(collector_doc['type']))
+
     def change_main_view(self, menu_options):
         collector_name = self.views['menu'].menu.get_active_in_group('collectors')[0]
         collector_doc = [collector
                          for collector in self.data.config.get('collectors')
                          if collector['name'] == collector_name][0]
-        view_class = getattr(views, "{}View".format(collector_doc['type']))
+        view_class = self.view_class_for_collector(collector_doc)
         view = view_class(self.data, self.windows['main'], collector_name)
         self.views['main'] = view
-        self.views['menu'].menu = view.menu
         self.views['main'].render()
+        self.change_to_view_menu(view)
+
+    def change_to_view_menu(self, view):
+        self.views['menu'].menu = view.menu
         self.views['menu'].render()
 
     def change_to_main_menu(self):
@@ -80,9 +86,12 @@ class WindowManager(object):
         self.views['title'] = views.TitleView(self.data, self.windows['title'])
         self.views['mini'] = views.MiniView(self.data, self.windows['mini'])
         self.views['status'] = views.StatusView(self.data, self.windows['status'])
-        self.views['main'] = views.TailView(self.data, self.windows['main'], "TailSlowLog")
+        initial_collector = self.data.config['collectors'][0]
+        initial_view_class = self.view_class_for_collector(initial_collector)
+        self.views['main'] = initial_view_class(self.data, self.windows['main'], initial_collector['name'])
 
         self.change_to_main_menu()
+        self.change_to_view_menu(self.views['main'])
 
     def _redraw_windows(self):
         y, x = self.screen.getmaxyx()

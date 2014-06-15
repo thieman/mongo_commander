@@ -10,11 +10,13 @@ ssh:
 # host: the address that MC uses to connect to the node over SSH.
 # mongo_port: the port of the mongod node on the host. used for primary checking.
 nodes:
-  - {name: core-db5-staging, host: core-db5-staging.gamechanger.io, mongo_port: 27018}
-  - {name: core-db6-staging, host: core-db6-staging.gamechanger.io, mongo_port: 27018}
-  - {name: log-db2-staging, host: log-db2-staging.gamechanger.io, mongo_port: 27018}
-  - {name: shard1-db4-staging, host: shard1-db4-staging.gamechanger.io, mongo_port: 27018}
-  - {name: shard1-db6-staging, host: shard1-db6-staging.gamechanger.io, mongo_port: 27018}
+  - {name: core-db4-prod, host: core-db4-prod.gamechanger.io, mongo_port: 27018}
+  - {name: shard1-db4-prod, host: shard1-db4-prod.gamechanger.io, mongo_port: 27018}
+  - {name: shard2-db4-prod, host: shard2-db4-prod.gamechanger.io, mongo_port: 27018}
+  - {name: shard3-db4-prod, host: shard3-db4-prod.gamechanger.io, mongo_port: 27018}
+  - {name: shard4-db4-prod, host: shard4-db4-prod.gamechanger.io, mongo_port: 27018}
+  - {name: shard5-db4-prod, host: shard5-db4-prod.gamechanger.io, mongo_port: 27018}
+  - {name: shard6-db4-prod, host: shard6-db4-prod.gamechanger.io, mongo_port: 27018}
 
 # Each collector type has its own set of options but they all support:
 # name: the name by which the collector will be referred to in MC. these must be unique.
